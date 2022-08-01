@@ -1,0 +1,83 @@
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE PROCEDURE difPassageiro(
+	-- Add the parameters for the stored procedure here
+	@ICAOID nchar(4),
+    @pbalance INT OUTPUT
+    )
+AS
+BEGIN
+	-- SET NOCOUNT ON added to prevent extra result sets from
+	-- interfering with SELECT statements.
+	SET NOCOUNT ON;
+
+    declare @out int;
+	declare @in int;
+
+	declare @exists int;
+
+	set @exists = (
+		select count(*) from Airport a where a.ICAOId = @ICAOID
+	)
+
+
+	if @exists = 0 return -1;
+
+	set @in = (
+	select count(*)  from Passenger p, BoardingPass bp, Airport a, Flight f
+	where bp.docReference = p.docReference
+	and bp.documentType = p.documentType
+	and bp.nationality = p.nationality
+	and f.flightNumber = bp.flightNumber
+	and f.airlineICAOId = bp.airlineICAOId
+	and f.departureDate = bp.departureDate
+	and f.departureTime = bp.departureTime
+	and f.fromAirport = a.ICAOId
+	and a.ICAOId = @ICAOID
+	);
+
+	set @out = (
+	select count(*)  from Passenger p, BoardingPass bp, Airport a, Flight f
+	where bp.docReference = p.docReference
+	and bp.documentType = p.documentType
+	and bp.nationality = p.nationality
+	and f.flightNumber = bp.flightNumber
+	and f.airlineICAOId = bp.airlineICAOId
+	and f.departureDate = bp.departureDate
+	and f.departureTime = bp.departureTime
+	and f.toAirport = a.ICAOId
+	and a.ICAOId = @ICAOID
+	);
+
+	SET @pbalance = @out-@in;
+
+end
+GO
+
+
+
+CREATE TRIGGER inaugura ON Flight
+AFTER INSERT
+AS
+BEGIN
+SET NOCOUNT ON;
+
+DECLARE @numAviao AS NCHAR(10);
+
+DECLARE @data AS date;
+
+SELECT @data = departureDate, @numAviao = registrationNumber FROM inserted;
+
+DECLARE @cont AS int = (SELECT COUNT(*) FROM
+										(SELECT * FROM  Flight  WHERE Flight.registrationNumber  =  'TAP001')  AS a)  - 1;
+
+IF @cont = 0
+		UPDATE Aircraft
+		SET [description] = 'Voo inaugural em' + CAST(@data AS varchar(15))
+		WHERE registrationNumber = @numAviao;
+
+END
+GO
